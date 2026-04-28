@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#29A853"/>
+      <stop offset="1" stop-color="#01905A"/>
+    </linearGradient>
+    <radialGradient id="ball" cx="0.35" cy="0.35" r="0.8">
+      <stop offset="0" stop-color="#FFF176"/>
+      <stop offset="1" stop-color="#E6C820"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 绿色渐变圆角底（swing.vision 主题） -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+
+  <!-- 黄色网球 -->
+  <circle cx="32" cy="32" r="20" fill="url(#ball)"/>
+
+  <!-- 球面毛绒斑点（轻量致敬原图的毛绒质感） -->
+  <ellipse cx="22" cy="22" rx="5" ry="2.8" fill="#fff" opacity="0.32" transform="rotate(-34 22 22)"/>
+  <ellipse cx="42" cy="41" rx="4"   ry="2.2" fill="#fff" opacity="0.28" transform="rotate(-34 42 41)"/>
+
+  <!-- 趋势折线（替代 S 曲线，表达"数据分析"） -->
+  <polyline
+    points="16,40 24,36 30,33 38,26 46,18"
+    stroke="#fff" stroke-width="3"
+    fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 折线末端高亮数据点 -->
+  <circle cx="46" cy="18" r="3.2" fill="#fff"/>
+  <circle cx="46" cy="18" r="1.6" fill="#01905A"/>
+</svg>
