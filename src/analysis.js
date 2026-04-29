@@ -114,6 +114,14 @@ function opponentName(m, role, uid) {
   return [...new Set(names)].join(' / ')
 }
 
+function winnerRole(winner) {
+  const value = String(winner || '').toLowerCase()
+  if (!value || value === 'draw' || value === 'tie') return value || 'unknown'
+  if (value === 'host' || value === 'host_won' || value === 'host_win') return 'host'
+  if (value === 'guest' || value === 'guest_won' || value === 'guest_win') return 'guest'
+  return 'unknown'
+}
+
 export function analyzeMatches(matches, uid) {
   const classified = matches.map(m => {
     const role = userRole(m, uid)
@@ -123,9 +131,10 @@ export function analyzeMatches(matches, uid) {
     const userShotIn = num(isHost ? m.host_shot_in : m.guest_shot_in)
     let result = 'unknown'
     if (m.has_completed) {
-      if (m.winner === 'draw') result = 'draw'
-      else if ((m.winner === 'host' && isHost) || (m.winner === 'guest' && !isHost)) result = 'win'
-      else result = 'loss'
+      const winner = winnerRole(m.winner)
+      if (winner === 'draw' || winner === 'tie') result = 'draw'
+      else if (winner === role) result = 'win'
+      else if (winner === 'host' || winner === 'guest') result = 'loss'
     }
     const durationMin = m.recording_duration ? Math.round(m.recording_duration / 60 * 10) / 10 : 0
     return {
