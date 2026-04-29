@@ -1,6 +1,12 @@
 export async function fetchJSON(url) {
   const r = await fetch(url)
   if (!r.ok) throw new Error(`HTTP ${r.status}: ${url}`)
+  const contentType = r.headers.get('content-type') || ''
+  if (!contentType.includes('application/json')) {
+    const body = await r.text()
+    const preview = body.trim().slice(0, 80)
+    throw new Error(`接口未返回 JSON: ${url}${preview ? ` (${preview})` : ''}`)
+  }
   return r.json()
 }
 
