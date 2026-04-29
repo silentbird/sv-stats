@@ -40,7 +40,7 @@ function formatTime(value) {
           ref="inputEl"
           v-model="input"
           type="text"
-          placeholder="https://app.swing.tennis/... 或直接输入 UUID"
+          placeholder="https://swing.vision/users/<UUID> 或直接输入 UUID"
           @keydown.enter="submit"
         />
         <button class="btn-primary" @click="submit">分析</button>
