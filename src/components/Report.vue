@@ -10,8 +10,10 @@ const props = defineProps({
   profile: { type: Object, required: true },
   stats: { type: Object, required: true },
   analysis: { type: Object, required: true },
+  analyzedAt: { type: String, default: '' },
+  fromHistory: { type: Boolean, default: false },
 })
-defineEmits(['reanalyze'])
+defineEmits(['reanalyze', 'update'])
 
 const p = computed(() => props.profile)
 const s = computed(() => props.stats)
@@ -58,9 +60,124 @@ const showMonthlyTable = computed(() => monthKeys.value.length > 0)
 const showAccuracyChart = computed(() => an.value.accuracyTrend.length >= 2)
 
 const locationText = computed(() => [p.value.city, p.value.state].filter(Boolean).join(', '))
+const analysisTime = computed(() => props.analyzedAt
+  ? new Date(props.analyzedAt).toLocaleString('zh-CN')
+  : '本次会话'
+)
 const footerText = computed(() =>
   `数据来源: Swing Vision API · @${p.value.username} (${p.value.first_name}) · ${new Date().toLocaleString('zh-CN')}`
 )
+
+const trainingFocus = computed(() => {
+  const items = []
+
+  function add(title, metric, detail, action, tone, score) {
+    items.push({ title, metric, detail, action, tone, score })
+  }
+
+  if (s.value.first_serve >= 20 && fp.value < 55) {
+    add(
+      '一发稳定性',
+      `${fmt(fp.value)}%`,
+      `一发进区 ${s.value.first_serve_in}/${s.value.first_serve}，会直接影响保发压力。`,
+      '安排 20 分钟定点发球：先追求 7/10 进区，再逐步加入落点变化。',
+      'warn',
+      100 - fp.value
+    )
+  }
+
+  if (s.value.second_serve_in >= 10 && spw.value < 45) {
+    add(
+      '二发保护',
+      `${fmt(spw.value)}%`,
+      `二发得分 ${s.value.second_serve_won}/${s.value.second_serve_in}，对手容易在二发上抢攻。`,
+      '练高弧线深区二发和发后第一拍，目标是把二发回合拖进中性相持。',
+      'warn',
+      90 - spw.value
+    )
+  }
+
+  if (s.value.first_return >= 20 && frp.value < 35) {
+    add(
+      '一接质量',
+      `${fmt(frp.value)}%`,
+      `一接得分 ${s.value.first_return_won}/${s.value.first_return}，破发机会可能被压缩。`,
+      '优先练站位和挡回深度：把一发先回到中路深区，再追求角度。',
+      'info',
+      85 - frp.value
+    )
+  }
+
+  if (s.value.break_point_opportunity >= 5 && bpc.value < 40) {
+    add(
+      '破发点执行',
+      `${fmt(bpc.value)}%`,
+      `破发点转化 ${s.value.break_point_converted}/${s.value.break_point_opportunity}。`,
+      '模拟 30-40 / AD 接发局，提前设定第一拍路线，减少临场犹豫。',
+      'hot',
+      80 - bpc.value
+    )
+  }
+
+  if (s.value.total_shot >= 100 && acc.value < 75) {
+    add(
+      '击球容错',
+      `${fmt(acc.value)}%`,
+      `总击球进界 ${s.value.total_shot_in}/${s.value.total_shot}，失误成本偏高。`,
+      '做 50 球连续相持训练：高度过网、落点过发球线，先把连续性拉起来。',
+      'info',
+      78 - acc.value
+    )
+  }
+
+  const fhErrorGap = fhu.value - fhw.value
+  const bhErrorGap = bhu.value - bhw.value
+  if (s.value.forehand >= 50 && fhErrorGap > 8) {
+    add(
+      '正手风险控制',
+      `${fmt(fhu.value)}% UE`,
+      `正手非受迫性失误率比制胜分率高 ${fmt(fhErrorGap)} 个百分点。`,
+      '把正手进攻球分成三档：过渡、压制、终结，只在明确短球时终结。',
+      'hot',
+      fhErrorGap + 45
+    )
+  }
+  if (s.value.backhand >= 50 && bhErrorGap > 8) {
+    add(
+      '反手稳定性',
+      `${fmt(bhu.value)}% UE`,
+      `反手非受迫性失误率比制胜分率高 ${fmt(bhErrorGap)} 个百分点。`,
+      '练反手斜线深球和切削防守，把弱侧回合从失分点变成过渡点。',
+      'hot',
+      bhErrorGap + 45
+    )
+  }
+
+  const recentLosses = an.value.recentForm.slice(0, 5).filter(r => r === 'L').length
+  if (an.value.recentForm.length >= 5 && recentLosses >= 3) {
+    add(
+      '近期比赛节奏',
+      `${recentLosses}/5 负`,
+      '最近 5 场正式比赛输球偏多，可能需要先稳住比赛模板。',
+      '下一场只设 2 个战术目标：提高一发进区率，并把接发回到深区。',
+      'warn',
+      70 + recentLosses
+    )
+  }
+
+  if (items.length === 0) {
+    add(
+      '保持优势',
+      `${o.value.winRate}%`,
+      '当前核心指标没有明显短板，适合进入专项打磨阶段。',
+      '挑一个最想升级的武器做 2 周专项，例如一发落点、接发抢攻或反手变线。',
+      'good',
+      1
+    )
+  }
+
+  return items.sort((a, b) => b.score - a.score).slice(0, 4)
+})
 
 function winRate(total, wins) {
   return total > 0 ? (wins / total * 100).toFixed(0) : 0
@@ -79,8 +196,12 @@ function winRate(total, wins) {
         <span v-if="p.usta_rating" class="badge ntrp">NTRP {{ p.usta_rating }}</span>
         <span v-if="locationText" class="badge muted">{{ locationText }}</span>
         <span class="badge muted">@{{ p.username }}</span>
+        <span class="badge muted">{{ fromHistory ? '历史记录' : '最新分析' }} · {{ analysisTime }}</span>
       </div>
-      <button class="reanalyze-btn" @click="$emit('reanalyze')">↩ 重新分析</button>
+      <div class="header-actions">
+        <button class="reanalyze-btn" @click="$emit('reanalyze')">↩ 重新分析</button>
+        <button class="update-btn" @click="$emit('update')">⟳ 更新数据</button>
+      </div>
     </div>
 
     <!-- Overview -->
@@ -103,6 +224,22 @@ function winRate(total, wins) {
                   :label="`${sh.totalShotsIn} / ${sh.totalShots}`" color="accent2" />
         <StatCard title="正式比赛" :value="o.realMatchCount"
                   :label="`发球练习 ${o.servePracticeCount}`" color="yellow" />
+      </div>
+    </div>
+
+    <!-- Training focus -->
+    <div class="section">
+      <div class="section-title"><span class="ico">🧭</span> 训练重点</div>
+      <div class="focus-grid">
+        <div v-for="(item, i) in trainingFocus" :key="item.title" class="focus-card" :class="`focus-${item.tone}`">
+          <div class="focus-head">
+            <span class="focus-rank">#{{ i + 1 }}</span>
+            <span class="focus-metric">{{ item.metric }}</span>
+          </div>
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.detail }}</p>
+          <div class="focus-action">{{ item.action }}</div>
+        </div>
       </div>
     </div>
 
